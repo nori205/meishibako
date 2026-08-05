@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>めいし帳 - デジタル名刺入れ</title>
+<meta name="description" content="オフ会で会った人のプロフィールURLをイベント別に貯めて見返す、あなただけの名刺帳" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%97%82%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#12172a;
+    --bg-deep:#0c0f1c;
+    --paper:#fbf6ea;
+    --paper-alt:#f3ecd8;
+    --ink:#242536;
+    --ink-soft:#5c5f76;
+    --amber:#ffb703;
+    --amber-deep:#e08e00;
+    --hanko:#d33f3f;
+    --teal:#2a9d8f;
+    --line:#d8cdb0;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      radial-gradient(circle at 20% 10%, rgba(255,183,3,0.08), transparent 40%),
+      radial-gradient(circle at 80% 90%, rgba(42,157,143,0.10), transparent 45%),
+      var(--bg-deep);
+    background-attachment:fixed;
+    color:var(--ink);
+    font-family:"Hiragino Maru Gothic ProN","BIZ UDPGothic","Yu Gothic",system-ui,-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{ font-family:inherit; }
+  input,textarea,select{ font-family:inherit; font-size:16px; }
+  #app{
+    max-width:480px;
+    margin:0 auto;
+    min-height:100vh;
+    background:var(--bg);
+    display:flex;
+    flex-direction:column;
+    box-shadow:0 0 60px rgba(0,0,0,0.5);
+  }
+
+  /* header */
+  .appheader{
+    position:sticky; top:0; z-index:20;
+    background:linear-gradient(160deg,#1b2247,#141a33);
+    padding:14px 16px 12px;
+    border-bottom:3px dashed rgba(255,183,3,0.35);
+  }
+  .applogo{
+    color:var(--paper);
+    font-weight:700;
+    font-size:20px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    letter-spacing:.02em;
+  }
+  .applogo small{
+    display:block;
+    font-size:11px;
+    font-weight:400;
+    color:#a7adc9;
+    letter-spacing:.03em;
+  }
+  .event-picker{
+    margin-top:10px;
+    background:rgba(255,255,255,0.06);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:12px;
+    padding:8px 10px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .event-picker-label{
+    color:var(--amber);
+    font-size:12px;
+    font-weight:700;
+    white-space:nowrap;
+  }
+  .event-picker select{
+    flex:1;
+    min-width:0;
+    background:var(--paper);
+    color:var(--ink);
+    border:none;
+    border-radius:8px;
+    padding:7px 8px;
+    font-size:13px;
+    font-weight:600;
+  }
+  .event-picker-empty{
+    flex:1;
+    color:#c9cde0;
+    font-size:12px;
+  }
+  .btn-mini{
+    flex-shrink:0;
+    width:30px; height:30px;
+    border-radius:50%;
+    border:none;
+    background:var(--amber);
+    color:#3a2600;
+    font-weight:800;
+    font-size:16px;
+    cursor:pointer;
+  }
+
+  /* main content */
+  .content{
+    flex:1;
+    padding:14px 14px 100px;
+  }
+
+  /* tab bar */
+  .tabbar{
+    position:sticky; bottom:0; z-index:20;
+    display:flex;
+    background:linear-gradient(0deg,#141a33,#171d3a);
+    border-top:3px dashed rgba(255,183,3,0.35);
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+  .tab-btn{
+    flex:1;
+    background:none;
+    border:none;
+    color:#9297b5;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:2px;
+    padding:6px 2px;
+    border-radius:10px;
+    cursor:pointer;
+  }
+  .tab-btn.active{
+    color:var(--amber);
+    background:rgba(255,183,3,0.12);
+  }
+  .tab-icon{ font-size:19px; }
+  .tab-label{ font-size:10px; font-weight:700; }
+
+  /* generic buttons */
+  .btn-primary{
+    background:var(--amber);
+    color:#3a2600;
+    border:none;
+    border-radius:12px;
+    padding:12px 16px;
+    font-weight:800;
+    font-size:15px;
+    cursor:pointer;
+  }
+  .btn-secondary{
+    background:transparent;
+    color:var(--paper);
+    border:2px solid rgba(255,255,255,0.25);
+    border-radius:12px;
+    padding:10px 16px;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+  }
+  .btn-block{ width:100%; }
+  .icon-btn{
+    background:rgba(0,0,0,0.06);
+    border:none;
+    width:32px; height:32px;
+    border-radius:8px;
+    font-size:15px;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+
+  /* empty state */
+  .empty-state{
+    text-align:center;
+    padding:60px 16px;
+    color:#c9cde0;
+  }
+  .empty-state.small{ padding:36px 16px; }
+  .empty-emoji{ font-size:44px; margin-bottom:10px; }
+  .empty-state p{ line-height:1.6; margin:0 0 18px; font-size:14px; }
+
+  /* home toolbar */
+  .home-toolbar{ margin-bottom:14px; }
+
+  /* event tile */
+  .event-tile{
+    position:relative;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--paper);
+    border:2px dashed var(--line);
+    border-radius:14px;
+    padding:14px 12px;
+    margin-bottom:12px;
+    cursor:pointer;
+    overflow:hidden;
+  }
+  .event-tile:nth-child(odd){ transform:rotate(-0.4deg); }
+  .event-tile:nth-child(even){ transform:rotate(0.4deg); }
+  .event-tile-stripe{
+    position:absolute; left:0; top:0; bottom:0; width:6px;
+  }
+  .event-tile-main{ flex:1; min-width:0; padding-left:8px; }
+  .event-tile-name{
+    font-weight:800; font-size:15px; color:var(--ink);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .event-tile-meta{ font-size:12px; color:var(--ink-soft); margin-top:3px; }
+  .chevron{ font-size:20px; color:var(--ink-soft); flex-shrink:0; }
+
+  /* detail header */
+  .detail-header{
+    display:flex; align-items:center; gap:8px;
+    margin-bottom:14px;
+  }
+  .back-btn{
+    background:rgba(255,255,255,0.08);
+    color:var(--paper);
+    border:none; border-radius:10px;
+    padding:8px 12px; font-weight:700; font-size:13px; cursor:pointer;
+  }
+  .detail-title{
+    flex:1; color:var(--paper); font-weight:800; font-size:17px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .detail-header .icon-btn{ background:rgba(255,255,255,0.12); }
+
+  /* meishi card */
+  .meishi-card{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    background:var(--paper);
+    border:2px solid var(--line);
+    border-radius:14px;
+    padding:12px;
+    margin-bottom:10px;
+  }
+  .meishi-avatar{
+    flex-shrink:0;
+    width:42px; height:42px;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-weight:800; font-size:17px;
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,0.4);
+  }
+  .meishi-main{ flex:1; min-width:0; }
+  .meishi-name{ font-weight:800; font-size:15px; color:var(--ink); }
+  .meishi-memo{
+    font-size:12.5px; color:var(--ink-soft); margin-top:3px;
+    overflow:hidden; text-overflow:ellipsis; display:-webkit-box;
+    -webkit-line-clamp:2; -webkit-box-orient:vertical;
+  }
+  .meishi-meta{ display:flex; align-items:center; gap:6px; margin-top:6px; flex-wrap:wrap; }
+  .event-tag{
+    font-size:10.5px; font-weight:700; color:#fff;
+    padding:2px 7px; border-radius:20px;
+  }
+  .meishi-date{ font-size:11px; color:#a7a9bd; }
+  .meishi-actions{ display:flex; flex-direction:column; gap:6px; align-items:flex-end; }
+  .btn-view{
+    background:var(--teal); color:#fff; border:none;
+    border-radius:20px; padding:7px 12px; font-size:12px; font-weight:700; cursor:pointer;
+    white-space:nowrap;
+  }
+
+  /* scan */
+  .scan-choice, .scan-panel{ display:flex; flex-direction:column; gap:12px; align-items:stretch; }
+  .scan-target{
+    text-align:center; color:var(--amber); font-weight:700; font-size:13px;
+    background:rgba(255,183,3,0.1); border:1px dashed rgba(255,183,3,0.4);
+    border-radius:10px; padding:8px; margin:0 0 4px;
+  }
+  .big-choice-btn{
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    background:var(--paper); color:var(--ink);
+    border:2px dashed var(--line); border-radius:16px;
+    padding:22px 12px; font-size:16px; font-weight:800; cursor:pointer;
+  }
+  .bc-emoji{ font-size:26px; }
+  .error-banner{
+    background:rgba(211,63,63,0.15); color:#ff9d9d;
+    border:1px solid rgba(211,63,63,0.4); border-radius:10px;
+    padding:10px; font-size:13px; text-align:center;
+  }
+  .qr-reader-box{
+    width:100%; border-radius:16px; overflow:hidden;
+    border:3px dashed var(--amber); background:#000;
+    min-height:240px;
+  }
+  #url-paste-form{ display:flex; flex-direction:column; gap:10px; }
+  #url-paste-form input{
+    background:var(--paper); border:2px solid var(--line); border-radius:10px;
+    padding:12px; color:var(--ink);
+  }
+
+  /* search */
+  .search-panel{ display:flex; flex-direction:column; }
+  #search-input{
+    background:var(--paper); border:2px solid var(--line); border-radius:12px;
+    padding:12px 14px; color:var(--ink); margin-bottom:8px;
+  }
+  .search-count{ color:#a7adc9; font-size:12px; margin-bottom:12px; }
+
+  /* mycard */
+  .mycard-panel{ text-align:center; }
+  .mycard-panel h2{ color:var(--paper); font-size:18px; margin:4px 0 8px; }
+  .hint{ color:#a7adc9; font-size:13px; line-height:1.6; margin-bottom:16px; text-align:left; }
+  #mycard-form{ display:flex; flex-direction:column; gap:10px; }
+  #mycard-form input{
+    background:var(--paper); border:2px solid var(--line); border-radius:10px;
+    padding:12px; color:var(--ink);
+  }
+  .mycard-qr-wrap{
+    background:#fff; border-radius:18px; padding:18px;
+    display:inline-block; border:3px dashed var(--amber); margin-bottom:14px;
+  }
+  .mycard-url{
+    color:#c9cde0; font-size:12.5px; word-break:break-all; margin-bottom:16px;
+  }
+  .mycard-btns{ display:flex; flex-direction:column; gap:10px; }
+
+  /* modal */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(10,12,24,0.72);
+    display:flex; align-items:center; justify-content:center;
+    padding:20px; z-index:100;
+  }
+  .modal-card{
+    background:var(--paper); border-radius:18px; border:3px dashed var(--amber);
+    padding:20px; width:100%; max-width:360px;
+    max-height:86vh; overflow-y:auto;
+  }
+  .modal-card h3{ margin:0 0 12px; font-size:17px; color:var(--ink); }
+  .modal-url{
+    font-size:11.5px; color:var(--ink-soft); background:var(--paper-alt);
+    border-radius:8px; padding:6px 8px; word-break:break-all; margin:0 0 12px;
+  }
+  .modal-card form{ display:flex; flex-direction:column; gap:8px; }
+  .field-label{ font-size:12px; font-weight:700; color:var(--ink-soft); margin-top:4px; }
+  .modal-card input, .modal-card textarea{
+    background:#fff; border:2px solid var(--line); border-radius:10px;
+    padding:10px; color:var(--ink); resize:vertical;
+  }
+  .modal-event-badge{
+    align-self:flex-start; color:#fff; font-size:12px; font-weight:700;
+    padding:5px 10px; border-radius:20px; margin-top:6px;
+  }
+  .modal-actions{ display:flex; gap:8px; margin-top:14px; }
+  .modal-actions .btn-secondary{ color:var(--ink); border-color:var(--line); flex:1; }
+  .modal-actions .btn-primary{ flex:1; }
+
+  /* stamp toast */
+  .stamp-toast{
+    position:fixed; top:50%; left:50%;
+    transform:translate(-50%,-50%) scale(0.5) rotate(-8deg);
+    background:transparent;
+    color:var(--hanko);
+    border:5px solid var(--hanko);
+    border-radius:14px;
+    padding:14px 22px;
+    font-weight:900;
+    font-size:16px;
+    letter-spacing:.05em;
+    opacity:0;
+    z-index:200;
+    pointer-events:none;
+    transition:opacity .18s ease, transform .18s ease;
+    background:rgba(255,255,255,0.9);
+    box-shadow:0 6px 24px rgba(0,0,0,0.3);
+    max-width:80vw;
+    text-align:center;
+  }
+  .stamp-toast--in{ opacity:1; transform:translate(-50%,-50%) scale(1) rotate(-8deg); }
+  .stamp-toast--out{ opacity:0; transform:translate(-50%,-50%) scale(1.05) rotate(-8deg); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+(function(){
+  "use strict";
+
+  var STORAGE_PREFIX = 'meishibako_v1_';
+  var PALETTE = ['#e63946','#f4a300','#2a9d8f','#e76f51','#3a86ff','#8338ec','#06923e','#fb8500','#d62828','#457b9d'];
+
+  function loadJSON(key, fallback){
+    try{
+      var v = localStorage.getItem(STORAGE_PREFIX + key);
+      return v ? JSON.parse(v) : fallback;
+    }catch(e){ return fallback; }
+  }
+  function saveJSON(key, value){
+    try{ localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value)); }catch(e){}
+  }
+
+  var state = {
+    cards: loadJSON('cards', []),
+    events: loadJSON('events', []),
+    currentEvent: loadJSON('currentEvent', null),
+    myCard: loadJSON('mycard', null),
+    tab: 'home',
+    homeSub: null,
+    scanMode: null,
+    scanError: null,
+    searchQuery: '',
+    editingMyCard: false,
+    modal: null
+  };
+  if(state.currentEvent && !state.events.some(function(e){ return e.name === state.currentEvent; })){
+    state.currentEvent = state.events.length ? state.events[0].name : null;
+  }
+
+  var html5QrCode = null;
+  var scanLock = false;
+
+  function esc(str){
+    return String(str == null ? '' : str).replace(/[&<>"']/g, function(ch){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch];
+    });
+  }
+  function truncate(str, n){
+    str = String(str);
+    return str.length > n ? str.slice(0, n - 1) + '…' : str;
+  }
+  function pad2(n){ return n < 10 ? '0' + n : '' + n; }
+  function fmtDate(ts){
+    var d = new Date(ts);
+    return d.getFullYear() + '/' + pad2(d.getMonth() + 1) + '/' + pad2(d.getDate());
+  }
+  function genId(){
+    if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9);
+  }
+  function isHttpUrl(str){
+    try{
+      var u = new URL(str);
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    }catch(e){ return false; }
+  }
+  function hashColor(str){
+    str = str || '';
+    var h = 0;
+    for(var i = 0; i < str.length; i++){
+      h = str.charCodeAt(i) + ((h << 5) - h);
+      h |= 0;
+    }
+    return PALETTE[Math.abs(h) % PALETTE.length];
+  }
+
+  function persist(key){
+    var map = { cards: state.cards, events: state.events, currentEvent: state.currentEvent, mycard: state.myCard };
+    saveJSON(key, map[key]);
+  }
+
+  /* ---------- rendering ---------- */
+
+  var app = document.getElementById('app');
+
+  function render(){
+    var active = document.activeElement;
+    var activeId = active && active.id;
+    var selStart = active && typeof active.selectionStart === 'number' ? active.selectionStart : null;
+    var selEnd = active && typeof active.selectionEnd === 'number' ? active.selectionEnd : null;
+
+    app.innerHTML = buildHTML();
+    afterRender();
+
+    if(activeId){
+      var el = document.getElementById(activeId);
+      if(el){
+        el.focus();
+        if(selStart != null && typeof el.setSelectionRange === 'function'){
+          try{ el.setSelectionRange(selStart, selEnd); }catch(e){}
+        }
+      }
+    }
+  }
+
+  function afterRender(){
+    if(state.tab === 'mycard' && state.myCard && !state.editingMyCard){
+      var el = document.getElementById('mycard-qr');
+      if(el && window.QRCode){
+        el.innerHTML = '';
+        new QRCode(el, {
+          text: state.myCard.url,
+          width: 200, height: 200,
+          colorDark: '#21263a', colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      }
+    }
+  }
+
+  function buildHTML(){
+    return buildHeader() + '<main class="content">' + buildMain() + '</main>' + buildTabbar() + (state.modal ? buildModal() : '');
+  }
+
+  function buildHeader(){
+    var picker;
+    if(state.events.length){
+      var options = state.events.map(function(ev){
+        return '<option value="' + esc(ev.name) + '"' + (ev.name === state.currentEvent ? ' selected' : '') + '>' + esc(ev.name) + '</option>';
+      }).join('') + '<option value="__new__">＋ 新しいイベントを作る</option>';
+      picker = '<select id="currentEventSelect">' + options + '</select>';
+    } else {
+      picker = '<span class="event-picker-empty">まだイベントがありません</span>';
+    }
+    return '' +
+    '<header class="appheader">' +
+      '<div class="applogo">📇 <span>めいし帳<small>デジタル名刺入れ</small></span></div>' +
+      '<div class="event-picker">' +
+        '<span class="event-picker-label">📌 今のイベント</span>' +
+        picker +
+        '<button type="button" class="btn-mini" data-action="open-new-event-modal" title="イベントを作る">＋</button>' +
+      '</div>' +
+    '</header>';
+  }
+
+  function buildTabbar(){
+    var tabs = [['home','🏠','ホーム'],['scan','➕','読み込む'],['search','🔍','検索'],['mycard','🪪','自分のカード']];
+    return '<nav class="tabbar">' + tabs.map(function(t){
+      return '<button type="button" class="tab-btn' + (state.tab === t[0] ? ' active' : '') + '" data-action="tab" data-tab="' + t[0] + '">' +
+        '<span class="tab-icon">' + t[1] + '</span><span class="tab-label">' + t[2] + '</span></button>';
+    }).join('') + '</nav>';
+  }
+
+  function buildMain(){
+    switch(state.tab){
+      case 'scan': return buildScanTab();
+      case 'search': return buildSearchTab();
+      case 'mycard': return buildMyCardTab();
+      default: return buildHomeTab();
+    }
+  }
+
+  function renderCardRow(card, opts){
+    opts = opts || {};
+    var color = hashColor(card.name || '?');
+    var initial = (card.name || '?').trim().charAt(0) || '?';
+    return '' +
+    '<div class="meishi-card">' +
+      '<div class="meishi-avatar" style="background:' + color + '">' + esc(initial) + '</div>' +
+      '<div class="meishi-main">' +
+        '<div class="meishi-name">' + esc(card.name) + '</div>' +
+        (card.memo ? '<div class="meishi-memo">' + esc(card.memo) + '</div>' : '') +
+        '<div class="meishi-meta">' +
+          (opts.showEventTag ? '<span class="event-tag" style="background:' + hashColor(card.event) + '">' + esc(card.event) + '</span>' : '') +
+          '<span class="meishi-date">' + fmtDate(card.createdAt) + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="meishi-actions">' +
+        '<button type="button" class="btn-view" data-action="open-url" data-url="' + esc(card.url) + '">見る ↗</button>' +
+        '<button type="button" class="icon-btn" data-action="delete-card" data-id="' + esc(card.id) + '" title="削除">🗑</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function buildHomeTab(){
+    var activeSub = (state.homeSub && state.events.some(function(e){ return e.name === state.homeSub; })) ? state.homeSub : null;
+
+    if(activeSub){
+      var list = state.cards.filter(function(c){ return c.event === activeSub; }).sort(function(a,b){ return b.createdAt - a.createdAt; });
+      return '' +
+      '<div class="detail-header">' +
+        '<button type="button" class="back-btn" data-action="back-home">‹ 戻る</button>' +
+        '<div class="detail-title">' + esc(activeSub) + '</div>' +
+        '<button type="button" class="icon-btn" data-action="delete-event" data-event="' + esc(activeSub) + '" title="イベントを削除">🗑</button>' +
+      '</div>' +
+      (list.length
+        ? list.map(function(c){ return renderCardRow(c, { showEventTag:false }); }).join('')
+        : '<div class="empty-state small"><p>まだこのイベントで登録した名刺がありません。<br>「読み込む」タブから追加しましょう。</p></div>');
+    }
+
+    if(!state.events.length){
+      return '' +
+      '<div class="empty-state">' +
+        '<div class="empty-emoji">🗂️</div>' +
+        '<p>まだイベントがありません。<br>最初のイベントを作ってみましょう！</p>' +
+        '<button type="button" class="btn-primary" data-action="open-new-event-modal">＋ イベントを作る</button>' +
+      '</div>';
+    }
+
+    var sorted = state.events.slice().sort(function(a,b){ return b.createdAt - a.createdAt; });
+    return '' +
+    '<div class="home-toolbar"><button type="button" class="btn-primary btn-block" data-action="open-new-event-modal">＋ イベントを作る</button></div>' +
+    sorted.map(function(ev){
+      var list = state.cards.filter(function(c){ return c.event === ev.name; });
+      var count = list.length;
+      var last = count ? Math.max.apply(null, list.map(function(c){ return c.createdAt; })) : null;
+      var color = hashColor(ev.name);
+      return '' +
+      '<div class="event-tile" data-action="open-event" data-event="' + esc(ev.name) + '">' +
+        '<span class="event-tile-stripe" style="background:' + color + '"></span>' +
+        '<div class="event-tile-main">' +
+          '<div class="event-tile-name">' + esc(ev.name) + '</div>' +
+          '<div class="event-tile-meta">' + (count > 0 ? (count + '人 ・ 最終 ' + fmtDate(last)) : 'まだ誰もいません') + '</div>' +
+        '</div>' +
+        '<button type="button" class="icon-btn" data-action="delete-event" data-event="' + esc(ev.name) + '" title="イベントを削除">🗑</button>' +
+        '<span class="chevron">›</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  function buildScanTab(){
+    if(!state.events.length){
+      return '' +
+      '<div class="empty-state">' +
+        '<div class="empty-emoji">🗂️</div>' +
+        '<p>まだイベントがありません。<br>まずはイベントを作りましょう。</p>' +
+        '<button type="button" class="btn-primary" data-action="open-new-event-modal">＋ イベントを作る</button>' +
+      '</div>';
+    }
+    if(state.scanMode === 'camera'){
+      return '' +
+      '<div class="scan-panel">' +
+        '<p class="scan-target">「' + esc(state.currentEvent) + '」に追加します</p>' +
+        '<div id="qr-reader" class="qr-reader-box"></div>' +
+        '<button type="button" class="btn-secondary" data-action="cancel-scan">キャンセル</button>' +
+      '</div>';
+    }
+    if(state.scanMode === 'url'){
+      return '' +
+      '<div class="scan-panel">' +
+        '<p class="scan-target">「' + esc(state.currentEvent) + '」に追加します</p>' +
+        '<form id="url-paste-form">' +
+          '<input type="text" name="url" id="url-paste-input" placeholder="https://example.com/profile" required autocomplete="off" />' +
+          '<button type="submit" class="btn-primary">取り込む</button>' +
+        '</form>' +
+        '<button type="button" class="btn-secondary" data-action="cancel-scan">キャンセル</button>' +
+      '</div>';
+    }
+    return '' +
+    '<div class="scan-choice">' +
+      (state.scanError ? '<div class="error-banner">' + esc(state.scanError) + '</div>' : '') +
+      '<p class="scan-target">「' + esc(state.currentEvent) + '」に追加します</p>' +
+      '<button type="button" class="big-choice-btn" data-action="start-camera"><span class="bc-emoji">📷</span>QRを読み取る</button>' +
+      '<button type="button" class="big-choice-btn" data-action="show-url-form"><span class="bc-emoji">🔗</span>URLを貼り付ける</button>' +
+    '</div>';
+  }
+
+  function buildSearchTab(){
+    var q = (state.searchQuery || '').trim().toLowerCase();
+    var results = state.cards.slice().sort(function(a,b){ return b.createdAt - a.createdAt; });
+    if(q){
+      results = results.filter(function(c){
+        return (c.name || '').toLowerCase().indexOf(q) !== -1 || (c.memo || '').toLowerCase().indexOf(q) !== -1;
+      });
+    }
+    return '' +
+    '<div class="search-panel">' +
+      '<input type="text" id="search-input" placeholder="名前・メモで検索" value="' + esc(state.searchQuery || '') + '" autocomplete="off" />' +
+      '<div class="search-count">' + (q ? (results.length + '件見つかりました') : ('全' + results.length + '件')) + '</div>' +
+      (results.length
+        ? results.map(function(c){ return renderCardRow(c, { showEventTag:true }); }).join('')
+        : '<div class="empty-state small"><p>該当する名刺がありません。</p></div>') +
+    '</div>';
+  }
+
+  function buildMyCardTab(){
+    if(!state.myCard || state.editingMyCard){
+      var currentUrl = state.myCard ? state.myCard.url : '';
+      return '' +
+      '<div class="mycard-panel">' +
+        '<h2>🪪 自分のカード</h2>' +
+        '<p class="hint">あなたのプロフィールURLを登録すると、その場でQRコードが表示できます。オフ会で相手に見せて読み取ってもらいましょう。</p>' +
+        '<form id="mycard-form">' +
+          '<input type="text" name="url" id="mycard-url-input" value="' + esc(currentUrl) + '" placeholder="https://example.com/your-profile" required autocomplete="off" />' +
+          '<button type="submit" class="btn-primary">保存する</button>' +
+          (state.myCard ? '<button type="button" class="btn-secondary" data-action="cancel-mycard-edit">キャンセル</button>' : '') +
+        '</form>' +
+      '</div>';
+    }
+    return '' +
+    '<div class="mycard-panel">' +
+      '<h2>🪪 自分のカード</h2>' +
+      '<div class="mycard-qr-wrap"><div id="mycard-qr"></div></div>' +
+      '<p class="mycard-url">' + esc(state.myCard.url) + '</p>' +
+      '<div class="mycard-btns">' +
+        '<button type="button" class="btn-secondary" data-action="copy-mycard-url">🔗 リンクをコピー</button>' +
+        '<button type="button" class="btn-secondary" data-action="edit-mycard">編集する</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function buildModal(){
+    var m = state.modal;
+    var inner = '';
+    if(m.type === 'newEvent'){
+      inner = '' +
+      '<div class="modal-card" data-action="stop">' +
+        '<h3>＋ 新しいイベント</h3>' +
+        '<form id="new-event-form">' +
+          '<input type="text" name="name" id="new-event-name" placeholder="例）友人の結婚式2026" maxlength="30" required autocomplete="off" />' +
+          '<div class="modal-actions">' +
+            '<button type="button" class="btn-secondary" data-action="close-modal">キャンセル</button>' +
+            '<button type="submit" class="btn-primary">作成する</button>' +
+          '</div>' +
+        '</form>' +
+      '</div>';
+    } else if(m.type === 'newCard'){
+      inner = '' +
+      '<div class="modal-card" data-action="stop">' +
+        '<h3>🎴 名刺を追加</h3>' +
+        '<p class="modal-url" title="' + esc(m.url) + '">' + esc(truncate(m.url, 60)) + '</p>' +
+        '<form id="new-card-form">' +
+          '<label class="field-label">お名前</label>' +
+          '<input type="text" name="name" id="new-card-name" placeholder="例）田中さん" maxlength="40" required autocomplete="off" />' +
+          '<label class="field-label">ひとこと・メモ（任意）</label>' +
+          '<textarea name="memo" maxlength="200" rows="2" placeholder="話した内容など"></textarea>' +
+          '<div class="modal-event-badge" style="background:' + hashColor(state.currentEvent) + '">📌 ' + esc(state.currentEvent) + '</div>' +
+          '<div class="modal-actions">' +
+            '<button type="button" class="btn-secondary" data-action="close-modal">やめる</button>' +
+            '<button type="submit" class="btn-primary">追加する</button>' +
+          '</div>' +
+        '</form>' +
+      '</div>';
+    }
+    return '<div class="modal-overlay" data-action="close-modal">' + inner + '</div>';
+  }
+
+  /* ---------- toast ---------- */
+
+  function showStamp(text){
+    var el = document.createElement('div');
+    el.className = 'stamp-toast';
+    el.textContent = text || '登録！';
+    document.body.appendChild(el);
+    requestAnimationFrame(function(){ el.classList.add('stamp-toast--in'); });
+    setTimeout(function(){ el.classList.add('stamp-toast--out'); }, 1200);
+    setTimeout(function(){ el.remove(); }, 1700);
+  }
+
+  /* ---------- scanner ---------- */
+
+  function startScanner(){
+    var config = { fps: 10, qrbox: { width: 250, height: 250 } };
+    try{
+      html5QrCode = new Html5Qrcode('qr-reader');
+    }catch(e){
+      state.scanMode = null;
+      state.scanError = 'カメラの初期化に失敗しました。';
+      render();
+      return;
+    }
+    html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess, function(){})
+      .catch(function(){
+        html5QrCode.start({ facingMode: 'user' }, config, onScanSuccess, function(){})
+          .catch(function(){
+            state.scanMode = null;
+            state.scanError = 'カメラを起動できませんでした。ブラウザのカメラ権限をご確認いただくか、URL貼り付けをお使いください。';
+            html5QrCode = null;
+            render();
+          });
+      });
+  }
+
+  function stopScanner(){
+    if(html5QrCode){
+      var inst = html5QrCode;
+      html5QrCode = null;
+      try{
+        inst.stop().then(function(){ try{ inst.clear(); }catch(e){} }).catch(function(){});
+      }catch(e){}
+    }
+  }
+
+  function onScanSuccess(decodedText){
+    if(scanLock) return;
+    scanLock = true;
+    stopScanner();
+    var normalized = (decodedText || '').trim();
+    if(!isHttpUrl(normalized)){
+      scanLock = false;
+      state.scanMode = null;
+      state.scanError = '読み取った内容はURLではないようです。プロフィールのQRコードを読み取ってください。';
+      render();
+      return;
+    }
+    scanLock = false;
+    openNewCardModal(normalized);
+  }
+
+  function openNewCardModal(url){
+    state.scanMode = null;
+    state.modal = { type: 'newCard', url: url };
+    render();
+  }
+
+  /* ---------- actions ---------- */
+
+  function switchTab(tab){
+    if(state.scanMode === 'camera') stopScanner();
+    state.scanMode = null;
+    state.scanError = null;
+    state.tab = tab;
+    render();
+  }
+
+  function handleStartCamera(){
+    if(!state.events.length) return;
+    if(!state.currentEvent) state.currentEvent = state.events[0].name;
+    state.scanMode = 'camera';
+    state.scanError = null;
+    render();
+    requestAnimationFrame(function(){ startScanner(); });
+  }
+
+  function doDeleteCard(id){
+    var card = state.cards.find(function(c){ return c.id === id; });
+    if(!card) return;
+    if(!confirm('「' + card.name + '」さんの名刺を削除しますか？')) return;
+    state.cards = state.cards.filter(function(c){ return c.id !== id; });
+    persist('cards');
+    render();
+  }
+
+  function doDeleteEvent(name){
+    var count = state.cards.filter(function(c){ return c.event === name; }).length;
+    var msg = count > 0
+      ? ('「' + name + '」を削除しますか？\nこのイベントの名刺 ' + count + '件も一緒に削除されます。')
+      : ('「' + name + '」を削除しますか？');
+    if(!confirm(msg)) return;
+    state.cards = state.cards.filter(function(c){ return c.event !== name; });
+    state.events = state.events.filter(function(e){ return e.name !== name; });
+    if(state.currentEvent === name){ state.currentEvent = state.events.length ? state.events[0].name : null; }
+    if(state.homeSub === name) state.homeSub = null;
+    persist('cards'); persist('events'); persist('currentEvent');
+    render();
+  }
+
+  app.addEventListener('click', function(e){
+    var t = e.target.closest('[data-action]');
+    if(!t) return;
+    var action = t.dataset.action;
+    switch(action){
+      case 'tab': switchTab(t.dataset.tab); break;
+      case 'open-event': state.homeSub = t.dataset.event; render(); break;
+      case 'back-home': state.homeSub = null; render(); break;
+      case 'open-new-event-modal': state.modal = { type: 'newEvent' }; render(); break;
+      case 'delete-event': doDeleteEvent(t.dataset.event); break;
+      case 'delete-card': doDeleteCard(t.dataset.id); break;
+      case 'open-url': window.open(t.dataset.url, '_blank', 'noopener'); break;
+      case 'start-camera': handleStartCamera(); break;
+      case 'show-url-form': state.scanMode = 'url'; state.scanError = null; render(); break;
+      case 'cancel-scan': stopScanner(); state.scanMode = null; render(); break;
+      case 'close-modal': state.modal = null; render(); break;
+      case 'edit-mycard': state.editingMyCard = true; render(); break;
+      case 'cancel-mycard-edit': state.editingMyCard = false; render(); break;
+      case 'copy-mycard-url':
+        if(navigator.clipboard && state.myCard){
+          navigator.clipboard.writeText(state.myCard.url).then(function(){ showStamp('コピーしました'); }).catch(function(){ alert('コピーに失敗しました'); });
+        }
+        break;
+      case 'stop': break;
+    }
+  });
+
+  app.addEventListener('change', function(e){
+    if(e.target.id === 'currentEventSelect'){
+      var v = e.target.value;
+      if(v === '__new__'){ state.modal = { type: 'newEvent' }; render(); return; }
+      state.currentEvent = v;
+      persist('currentEvent');
+      render();
+    }
+  });
+
+  app.addEventListener('input', function(e){
+    if(e.target.id === 'search-input'){
+      state.searchQuery = e.target.value;
+      render();
+    }
+  });
+
+  app.addEventListener('submit', function(e){
+    var form = e.target;
+    e.preventDefault();
+
+    if(form.id === 'url-paste-form'){
+      var raw = form.elements['url'].value.trim();
+      if(!raw) return;
+      var normalized = /^https?:\/\//i.test(raw) ? raw : ('https://' + raw);
+      if(!isHttpUrl(normalized)){
+        state.scanMode = null;
+        state.scanError = '正しいURLを入力してください。';
+        render();
+        return;
+      }
+      openNewCardModal(normalized);
+
+    } else if(form.id === 'new-card-form'){
+      var name = form.elements['name'].value.trim();
+      if(!name){ alert('お名前を入力してください'); return; }
+      var memo = form.elements['memo'].value.trim();
+      var card = { id: genId(), url: state.modal.url, name: name, memo: memo, event: state.currentEvent, createdAt: Date.now() };
+      state.cards.push(card);
+      persist('cards');
+      state.modal = null;
+      render();
+      showStamp('「' + name + '」を追加しました');
+
+    } else if(form.id === 'new-event-form'){
+      var evName = form.elements['name'].value.trim();
+      if(!evName) return;
+      if(state.events.some(function(ev){ return ev.name.toLowerCase() === evName.toLowerCase(); })){
+        alert('同じ名前のイベントがすでにあります');
+        return;
+      }
+      state.events.push({ name: evName, createdAt: Date.now() });
+      state.currentEvent = evName;
+      persist('events');
+      persist('currentEvent');
+      state.modal = null;
+      render();
+      showStamp('「' + evName + '」を作成しました');
+
+    } else if(form.id === 'mycard-form'){
+      var rawUrl = form.elements['url'].value.trim();
+      if(!rawUrl) return;
+      var normalizedUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : ('https://' + rawUrl);
+      if(!isHttpUrl(normalizedUrl)){
+        alert('正しいURLを入力してください');
+        return;
+      }
+      state.myCard = { url: normalizedUrl, updatedAt: Date.now() };
+      persist('mycard');
+      state.editingMyCard = false;
+      render();
+    }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
