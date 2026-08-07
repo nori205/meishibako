@@ -10,14 +10,14 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root{
-    --bg:#ECDFCC;
-    --card:#FBF6EC;
-    --ink:#1E201E;
-    --sub:#7C8378;
-    --accent:#697565;
-    --accent-soft:#DFE3D8;
-    --line:#DDD0B8;
-    --stamp:#C4341C;
+    --bg:#FAFAF6;
+    --card:#FFFFFF;
+    --ink:#16181D;
+    --sub:#75787E;
+    --accent:#1D2740;
+    --accent-soft:#E8EAF1;
+    --line:#202225;
+    --stamp:#F2C245;
     --danger:#B5533F;
   }
   *{ box-sizing:border-box; }
@@ -74,7 +74,7 @@
     gap:8px;
   }
   .event-picker-label{
-    color:var(--stamp);
+    color:var(--accent);
     font-size:12px;
     font-weight:700;
     white-space:nowrap;
@@ -101,7 +101,7 @@
     border-radius:50%;
     border:none;
     background:var(--stamp);
-    color:#fff;
+    color:var(--ink);
     font-weight:800;
     font-size:16px;
     cursor:pointer;
@@ -152,7 +152,7 @@
     cursor:pointer;
   }
   .btn-primary{ background:var(--accent); }
-  .btn-stamp{ background:var(--stamp); }
+  .btn-stamp{ background:var(--stamp); color:var(--ink); }
   .btn-secondary{
     background:transparent;
     color:var(--ink);
@@ -284,7 +284,7 @@
   /* scan */
   .scan-choice, .scan-panel{ display:flex; flex-direction:column; gap:12px; align-items:stretch; }
   .scan-target{
-    text-align:center; color:var(--stamp); font-weight:700; font-size:13px;
+    text-align:center; color:var(--accent); font-weight:700; font-size:13px;
     background:color-mix(in srgb, var(--stamp) 10%, var(--card));
     border:1px dashed color-mix(in srgb, var(--stamp) 45%, transparent);
     border-radius:10px; padding:8px; margin:0 0 4px;
@@ -372,7 +372,7 @@
   .stamp-toast{
     position:fixed; top:50%; left:50%;
     transform:translate(-50%,-50%) scale(0.5) rotate(-8deg);
-    color:var(--stamp);
+    color:var(--ink);
     border:5px solid var(--stamp);
     border-radius:14px;
     padding:14px 22px;
@@ -502,7 +502,7 @@
         new QRCode(el, {
           text: state.myCard.url,
           width: 200, height: 200,
-          colorDark: '#1E201E', colorLight: '#ffffff',
+          colorDark: '#16181D', colorLight: '#ffffff',
           correctLevel: QRCode.CorrectLevel.M
         });
       }
